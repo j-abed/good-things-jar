@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { Picker } from 'emoji-mart';
+import 'emoji-mart/css/emoji-mart.css';
+import './App.css'; // Import the CSS file
 
 function App() {
   const [goodThings, setGoodThings] = useState([]);
   const [newThing, setNewThing] = useState('');
+  const [newPhoto, setNewPhoto] = useState(null);
+  const [newDate, setNewDate] = useState('');
+  const [showPicker, setShowPicker] = useState(false);
 
-  // Load existing "good things" from local storage on first render
   useEffect(() => {
     const storedItems = localStorage.getItem('goodThings');
     if (storedItems) {
@@ -12,7 +17,6 @@ function App() {
     }
   }, []);
 
-  // Whenever goodThings changes, save to local storage
   useEffect(() => {
     localStorage.setItem('goodThings', JSON.stringify(goodThings));
   }, [goodThings]);
@@ -20,74 +24,69 @@ function App() {
   const handleAddThing = () => {
     if (!newThing.trim()) return;
     const newEntry = {
-      id: Date.now(),    // unique ID based on timestamp
+      id: Date.now(),
       content: newThing,
-      date: new Date().toLocaleString()
+      date: newDate || new Date().toLocaleString(),
+      photo: newPhoto,
     };
     setGoodThings([newEntry, ...goodThings]);
-    setNewThing(''); // clear the input
+    setNewThing('');
+    setNewPhoto(null);
+    setNewDate('');
+    setShowPicker(false);
   };
 
   return (
-    <div style={styles.container}>
+    <div className="container">
       <h1>Good Things Jar</h1>
 
-      <div style={styles.inputContainer}>
+      <div className="form">
         <textarea
-          style={styles.textArea}
+          className="textarea"
           value={newThing}
           onChange={(e) => setNewThing(e.target.value)}
-          placeholder="Write a short good thing that happened this week..."
+          placeholder="Write a short good thing that happened..."
         />
-        <button style={styles.button} onClick={handleAddThing}>
-          Add
+
+        <input
+          type="date"
+          className="input"
+          value={newDate}
+          onChange={(e) => setNewDate(e.target.value)}
+        />
+
+        <input
+          type="file"
+          accept="image/*"
+          className="input"
+          onChange={(e) => setNewPhoto(URL.createObjectURL(e.target.files[0]))}
+        />
+
+        <button className="button" onClick={() => setShowPicker(!showPicker)}>
+          Add Emoji
+        </button>
+        {showPicker && (
+          <Picker
+            onSelect={(emoji) => setNewThing(newThing + emoji.native)}
+            className="emoji-picker"
+          />
+        )}
+
+        <button className="button" onClick={handleAddThing}>
+          Add Good Thing
         </button>
       </div>
 
-      <ul style={styles.list}>
+      <ul className="list">
         {goodThings.map((item) => (
-          <li key={item.id} style={styles.listItem}>
+          <li key={item.id} className="list-item">
             <strong>{item.date}:</strong> {item.content}
+            {item.photo && <img src={item.photo} alt="attachment" className="image" />}
           </li>
         ))}
       </ul>
     </div>
   );
 }
-
-// Inline styles for quick prototyping
-const styles = {
-  container: {
-    maxWidth: '600px',
-    margin: '40px auto',
-    padding: '0 20px',
-    fontFamily: 'sans-serif',
-  },
-  inputContainer: {
-    marginBottom: '20px',
-  },
-  textArea: {
-    width: '100%',
-    height: '60px',
-    marginBottom: '10px',
-    fontSize: '16px',
-    padding: '8px',
-  },
-  button: {
-    padding: '10px 20px',
-    fontSize: '16px',
-    cursor: 'pointer',
-  },
-  list: {
-    listStyleType: 'none',
-    paddingLeft: 0,
-  },
-  listItem: {
-    background: '#f9f9f9',
-    marginBottom: '10px',
-    padding: '10px',
-    borderRadius: '5px',
-  },
-};
 
 export default App;
