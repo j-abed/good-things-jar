@@ -4,14 +4,18 @@ import { useSpring, animated } from '@react-spring/web';
 import './App.css';
 
 function App() {
+  // Get today's date in YYYY-MM-DD format
+  const today = new Date().toISOString().split('T')[0];
+
   // State variables
   const [goodThings, setGoodThings] = useState([]); // List of all "Good Things"
   const [newThing, setNewThing] = useState(''); // Current input for a new "Good Thing"
-  const [newDate, setNewDate] = useState(''); // Date for the new "Good Thing"
+  const [newDate, setNewDate] = useState(today); // Initialize with today's date
   const [fallingThing, setFallingThing] = useState(''); // Text being animated
   const [showPicker, setShowPicker] = useState(false); // Toggle for emoji picker
   const [falling, setFalling] = useState(false); // Animation state for new "Good Thing"
   const [showRecap, setShowRecap] = useState(false); // Toggle for Recap view
+  const [pendingEntry, setPendingEntry] = useState(null); // Pending entry data
 
   const jarHeight = 300; // Height of the jar for animations and layout
 
@@ -30,25 +34,34 @@ function App() {
 
   // Start animation when "Add to Jar" is clicked
   const handleAddThing = () => {
-    if (!newThing.trim()) return; // Prevent empty entries
+    if (!newThing.trim()) return;
+    
+    // Store the entry data for later
+    setPendingEntry({
+      id: Date.now(),
+      content: newThing,
+      date: newDate || today, // Use today's date as fallback
+    });
+    
     setFallingThing(newThing); // Capture the current input for the animation
     setFalling(true); // Start animation
     setNewThing(''); // Clear input field for new entry
-    setNewDate(''); // Clear date field
+    setNewDate(today); // Reset to today's date instead of empty string
   };
 
   // Finalize the entry after the animation ends
   const finalizeEntry = () => {
-    const newEntry = {
-      id: Date.now(), // Unique identifier
-      content: fallingThing, // Content of the entry
-      date: newDate || new Date().toISOString().split('T')[0], // Use input date or today's date
-    };
-
-    // Add new entry to the top of the list
-    setGoodThings((prevThings) => [newEntry, ...prevThings]);
-    setFalling(false); // End animation
-    setShowPicker(false); // Close emoji picker
+    if (pendingEntry) {
+      setGoodThings(prevThings => [pendingEntry, ...prevThings]); // Add to beginning of list
+      setPendingEntry(null);
+      
+      // Force localStorage update
+      const updatedThings = [pendingEntry, ...goodThings];
+      localStorage.setItem('goodThings', JSON.stringify(updatedThings));
+    }
+    setFalling(false);
+    setShowPicker(false);
+    setFallingThing('');
   };
 
   // Group entries by month for the Recap view
@@ -61,15 +74,10 @@ function App() {
     }, {});
   };
 
-  // Calculate the jar's fill level based on the number of months with entries
+  // Calculate the jar's fill level based on number of items
   const jarFill = () => {
-    const months = new Set();
-    goodThings.forEach((item) => {
-      const date = new Date(item.date);
-      const month = `${date.getFullYear()}-${date.getMonth()}`;
-      months.add(month); // Add unique months
-    });
-    return Math.min(1, months.size / 12); // Fill the jar proportionally to months with entries
+    const maxItems = 50; // Maximum items for a full jar
+    return Math.min(1, goodThings.length / maxItems);
   };
 
   // Export "Good Things" to a CSV file
@@ -91,7 +99,7 @@ function App() {
     from: { transform: 'translateY(-100px)', opacity: 1 },
     to: { transform: `translateY(${jarHeight - 50}px)`, opacity: 1 },
     config: { duration: 1000 },
-    reset: false,
+    reset: true, // Reset animation for each new item
     onRest: () => {
       if (falling) finalizeEntry(); // Finalize entry after animation
     },
@@ -160,21 +168,23 @@ function App() {
         // Jar view
         <div className="jar">
           <img src="/jar.svg" alt="Jar" className="jar-svg" />
-          <div
-            className="jar-fill"
-            style={{ height: `${jarFill() * 100}%`, backgroundColor: '#4CAF50' }}
-          ></div>
-          {falling && (
-            <animated.div style={props} className="item">
-              {fallingThing}
-            </animated.div>
-          )}
-          <div className="jar-content">
-            {goodThings.slice(0, 10).map((item) => (
-              <div key={item.id} className="jar-item">
-                {item.content}
-              </div>
-            ))}
+          <div className="jar-contents">
+            <div
+              className="jar-fill"
+              style={{ height: `${jarFill() * 100}%` }}
+            />
+            {falling && (
+              <animated.div style={props} className="item">
+                {fallingThing}
+              </animated.div>
+            )}
+            <div className="jar-items">
+              {[...goodThings].reverse().map((item) => (
+                <div key={item.id} className="jar-item">
+                  {item.content}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
